@@ -490,57 +490,31 @@ function FileManagerCollection:showCollDialog()
             text = BookList.getBookStatusString(button_status) .. (is_checked and self.space_checkmark or ""),
             callback = function()
                 UIManager:close(coll_dialog)
-                if not is_checked then
-                    self.updated_collections[collection_name] = true
+                if is_checked then
+                    util.tableRemoveValue(self, "match_table", "status", button_status)
+                else
                     util.tableSetValue(self, true, "match_table", "status", button_status)
                     if util.tableSize(util.tableGetValue(self, "match_table", "status")) == 4 then -- all checked, no filter
                         util.tableRemoveValue(self, "match_table", "status")
                     end
-                    self:updateItemTable()
                 end
-            end,
-            hold_callback = function()
-                if is_checked then
-                    UIManager:close(coll_dialog)
-                    self.updated_collections[collection_name] = true
-                    util.tableRemoveValue(self, "match_table", "status", button_status)
-                    self:updateItemTable()
-                end
+                self.updated_collections[collection_name] = true
+                self:updateItemTable()
             end,
         }
     end
-    local function genFilterByMetadataButton(button_text, button_prop)
+    local function genFilterByMetadataButton(button_prop)
         local is_checked = util.tableGetValue(self, "match_table", "props", button_prop)
         return {
-            text = button_text .. (is_checked and self.space_checkmark or ""),
-            enabled = coll_not_empty or is_checked and true or false,
+            text = self.ui.bookinfo.prop_text[button_prop]:gsub(":", "") .. (is_checked and self.space_checkmark or ""),
             callback = function()
                 UIManager:close(coll_dialog)
-                local prop_values = {}
-                for idx, item in ipairs(self.booklist_menu.item_table) do
-                    local doc_prop = self.ui.bookinfo:getDocProps(item.file, nil, true)[button_prop]
-                    if doc_prop == nil then
-                        doc_prop = { self.empty_prop }
-                    elseif button_prop == "series" then
-                        doc_prop = { doc_prop }
-                    elseif button_prop == "language" then
-                        doc_prop = { doc_prop:lower() }
-                    else -- "authors", "keywords"
-                        doc_prop = util.splitToArray(doc_prop, "\n")
-                    end
-                    for _, prop in ipairs(doc_prop) do
-                        prop_values[prop] = prop_values[prop] or {}
-                        table.insert(prop_values[prop], idx)
-                    end
-                end
-                self:showPropValueList(button_prop, prop_values)
-            end,
-            hold_callback = function()
                 if is_checked then
-                    UIManager:close(coll_dialog)
-                    self.updated_collections[collection_name] = true
                     util.tableRemoveValue(self, "match_table", "props", button_prop)
+                    self.updated_collections[collection_name] = true
                     self:updateItemTable()
+                else
+                    self:showPropValueList(button_prop)
                 end
             end,
         }
@@ -564,20 +538,20 @@ function FileManagerCollection:showCollDialog()
             genFilterByStatusButton("complete"),
         },
         {
-            genFilterByMetadataButton(_("Filter by authors"), "authors"),
-            genFilterByMetadataButton(_("Filter by series"), "series"),
+            genFilterByMetadataButton("authors"),
+            genFilterByMetadataButton("series"),
         },
         {
-            genFilterByMetadataButton(_("Filter by language"), "language"),
-            genFilterByMetadataButton(_("Filter by keywords"), "keywords"),
+            genFilterByMetadataButton("language"),
+            genFilterByMetadataButton("keywords"),
         },
         {{
             text = _("Reset all filters"),
             enabled = self.match_table ~= nil,
             callback = function()
                 UIManager:close(coll_dialog)
-                self.updated_collections[collection_name] = true
                 self.match_table = nil
+                self.updated_collections[collection_name] = true
                 self:updateItemTable()
             end,
         }},
@@ -671,7 +645,25 @@ function FileManagerCollection:showCollDialog()
     UIManager:show(coll_dialog)
 end
 
-function FileManagerCollection:showPropValueList(prop, prop_values)
+function FileManagerCollection:showPropValueList(prop)
+    local prop_values = {}
+    for idx, item in ipairs(self.booklist_menu.item_table) do
+        local doc_prop = self.ui.bookinfo:getDocProps(item.file, nil, true)[prop]
+        if doc_prop == nil then
+            doc_prop = { self.empty_prop }
+        elseif prop == "series" then
+            doc_prop = { doc_prop }
+        elseif prop == "language" then
+            doc_prop = { doc_prop:lower() }
+        else -- "authors", "keywords"
+            doc_prop = util.splitToArray(doc_prop, "\n")
+        end
+        for _, prop_value in ipairs(doc_prop) do
+            prop_values[prop_value] = prop_values[prop_value] or {}
+            table.insert(prop_values[prop_value], idx)
+        end
+    end
+
     local prop_menu
     local prop_item_table = {}
     for value, item_idxs in pairs(prop_values) do
@@ -694,7 +686,7 @@ function FileManagerCollection:showPropValueList(prop, prop_values)
         table.sort(prop_item_table, function(a, b) return ffiUtil.strcoll(a.text, b.text) end)
     end
     prop_menu = Menu:new{
-        title = T("%1 (%2)", self.ui.bookinfo.prop_text[prop]:sub(1, -2), #prop_item_table),
+        title = T("%1 (%2)", self.ui.bookinfo.prop_text[prop]:gsub(":", ""), #prop_item_table),
         item_table = prop_item_table,
         covers_fullscreen = true,
         is_borderless = true,
