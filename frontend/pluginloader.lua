@@ -11,10 +11,13 @@ Plugins are controlled by the following settings.
 - plugins_disabled
 - extra_plugin_paths
 ]]
+local UIManager = require("ui/uimanager")
 local dbg = require("dbg")
 local lfs = require("libs/libkoreader-lfs")
 local logger = require("logger")
+local ffiUtil = require("ffi/util")
 local _ = require("gettext")
+local T = ffiUtil.template
 
 local DEFAULT_PLUGIN_PATH = "plugins"
 
@@ -59,6 +62,7 @@ end
 local function getMenuTable(plugin)
     local t = {}
     t.name = plugin.name
+    t.path = plugin.path
     t.fullname = string.format("%s%s", plugin.fullname or plugin.name,
         plugin.deprecated and " (" .. _("outdated") .. ")" or "")
 
@@ -278,25 +282,13 @@ function PluginLoader:genPluginManagerSubItem()
                 return plugin.enable
             end,
             callback = function()
-                local UIManager = require("ui/uimanager")
                 local plugins_disabled = G_reader_settings:readSetting("plugins_disabled") or {}
                 plugin.enable = not plugin.enable
                 if plugin.enable then
                     plugins_disabled[plugin.name] = nil
                 else
                     plugins_disabled[plugin.name] = true
-                    local instance = self:getPluginInstance(plugin.name)
-                    local stopPluginFn = instance and instance.stopPlugin
-                    if type(stopPluginFn) == "function" then
-                        local ok, err = self:stopPluginInstance(instance)
-                        if not ok then
-                            logger.err("PluginLoader: Failed to stop plugin instance", plugin.name, err)
-                            ok, err = self:stopPluginInstance(instance, true)
-                            if not ok then
-                                logger.err("PluginLoader: Failed to force-stop plugin instance", plugin.name, err)
-                            end
-                        end
-                    end
+                    self:stopPluginInstanceByName(plugin.name)
                 end
                 G_reader_settings:saveSetting("plugins_disabled", plugins_disabled)
                 if self.show_info then
@@ -304,7 +296,49 @@ function PluginLoader:genPluginManagerSubItem()
                     UIManager:askForRestart()
                 end
             end,
-            help_text = plugin.description,
+            hold_callback = function()
+                local CheckButton = require("ui/widget/checkbutton")
+                local ConfirmBox = require("ui/widget/confirmbox")
+                local instance = self:getPluginInstance(plugin.name)
+                local deletePluginSettingsFn = instance and instance.deletePluginSettings
+                local delete_plugin_settings = false
+                local delete_plugin_settings_checkbox
+                local confirmbox = ConfirmBox:new{
+                    text = plugin.description .. "\n\n" .. T(_("Are you sure you want to delete the plugin '%1'?"), plugin.fullname),
+                    ok_text = _("Delete"),
+                    ok_callback = function()
+                        self:stopPluginInstanceByName(plugin.name)
+                        local success, err = ffiUtil.purgeDir(plugin.path)
+                        if success then
+                            if delete_plugin_settings then
+                                self:deletePluginSettingsByName(plugin.name)
+                            end
+                            local plugins_disabled = G_reader_settings:readSetting("plugins_disabled") or {}
+                            if plugins_disabled[plugin.name] then
+                                plugins_disabled[plugin.name] = nil
+                                G_reader_settings:saveSetting("plugins_disabled", plugins_disabled)
+                            end
+                            self.all_plugins = nil
+                            UIManager:askForRestart()
+                        else
+                            local InfoMessage = require("ui/widget/infomessage")
+                            UIManager:show(InfoMessage:new{
+                                text = _("Failed to delete plugin:") .. "\n" .. err,
+                            })
+                        end
+                    end,
+                }
+                delete_plugin_settings_checkbox = CheckButton:new{
+                    parent = confirmbox,
+                    text = _("Also delete plugin settings"),
+                    enabled = type(deletePluginSettingsFn) == "function",
+                    callback = function()
+                        delete_plugin_settings = not delete_plugin_settings
+                    end,
+                }
+                confirmbox:addWidget(delete_plugin_settings_checkbox)
+                UIManager:show(confirmbox)
+            end,
         })
     end
     return plugin_table
@@ -321,10 +355,63 @@ function PluginLoader:createPluginInstance(plugin, attr)
     end
 end
 
+--- Calls the stopPlugin() method on a plugin instance of a given name if it's currently loaded.
+--- This is only intended for plugins that manage external resources or processes.
+--- @param name string The name of the plugin to stop.
+--- @return boolean Success, string|nil
+function PluginLoader:stopPluginInstanceByName(name)
+    local instance = self:getPluginInstance(name)
+    local stopPluginFn = instance and instance.stopPlugin
+    if type(stopPluginFn) ~= "function" then
+        return true, nil
+    end
+    local ok, err = self:stopPluginInstance(instance)
+    if ok then
+        return true, nil
+    end
+    logger.err("PluginLoader: Failed to stop plugin instance", name, err)
+    ok, err = self:stopPluginInstance(instance, true)
+    if not ok then
+        logger.err("PluginLoader: Failed to force-stop plugin instance", name, err)
+    end
+    return false, err
+end
+
+--- Calls the deletePluginSettings() method on a plugin instance of a given name if it's currently loaded.
+--- This is only intended for plugins that manage settings in G_reader_settings or koreader/settings.
+--- @param name string The name of the plugin whose settings should be deleted.
+--- @return boolean Success, string|nil
+function PluginLoader:deletePluginSettingsByName(name)
+    local instance = self:getPluginInstance(name)
+    local deletePluginSettingsFn = instance and instance.deletePluginSettings
+    if type(deletePluginSettingsFn) ~= "function" then
+        return true, nil
+    end
+    local ok, err = self:deletePluginSettings(instance)
+    if not ok then
+        logger.err("PluginLoader: Failed to delete plugin settings", name, err)
+    end
+    return ok, err
+end
+
+--- Calls the deletePluginSettings() method on a plugin instance if it's currently loaded.
+--- This is only intended for plugins that manage settings in G_reader_settings or koreader/settings.
+--- @param instance table The plugin instance whose settings should be deleted.
+--- @return boolean Success, string|nil
+function PluginLoader:deletePluginSettings(instance)
+    local ok, err = false, "no deletePluginSettings method"
+    local fn = instance.deletePluginSettings
+    if type(fn) == "function" then
+        ok, err = pcall(fn, instance)
+    end
+    if ok then return true, nil end
+    return false, err
+end
+
 --- Calls the stopPlugin() method on a plugin instance if it's currently loaded.
 --- This is only intended for plugins that manage external resources or processes.
 --- @param instance table The plugin instance to stop.
---- @param force boolean If true, forces the plugin to stop even if it encounters errors.
+--- @param force boolean|nil If true, forces the plugin to stop even if it encounters errors.
 --- @return boolean Success, string|nil
 function PluginLoader:stopPluginInstance(instance, force)
     local ok, err = false, "no stopPlugin method"

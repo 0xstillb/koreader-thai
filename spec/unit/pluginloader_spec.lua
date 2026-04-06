@@ -1,10 +1,12 @@
 describe("PluginLoader module", function()
     local PluginLoader, UIManager
+    local ffiUtil
     local original_lfs
 
     setup(function()
         require("commonrequire")
         UIManager = require("ui/uimanager")
+        ffiUtil = require("ffi/util")
         original_lfs = require("libs/libkoreader-lfs")
     end)
 
@@ -12,6 +14,7 @@ describe("PluginLoader module", function()
         local lfs_mock = {
             dir_results = {},
             attributes_results = {},
+            mkdir = original_lfs.mkdir,
         }
 
         function lfs_mock.dir(path)
@@ -158,5 +161,110 @@ describe("PluginLoader module", function()
         UIManager.askForRestart:revert()
         PluginLoader.getPluginInstance:revert()
         PluginLoader.loadPlugins:revert()
+    end)
+
+    it("deletes plugin settings by internal plugin id", function()
+        local shown_widget
+        local instance = {
+            deletePluginSettings = function() end,
+        }
+
+        stub(PluginLoader, "loadPlugins", function()
+            return {
+                {
+                    name = "test",
+                    fullname = "Pretty Test",
+                    description = "from meta",
+                    path = "plugins/test.koplugin",
+                },
+            }, {}
+        end)
+        stub(PluginLoader, "getPluginInstance", function()
+            return instance
+        end)
+        stub(PluginLoader, "stopPluginInstanceByName")
+        stub(PluginLoader, "deletePluginSettingsByName")
+        stub(ffiUtil, "purgeDir", function()
+            return true
+        end)
+        stub(UIManager, "show", function(_, widget)
+            shown_widget = widget
+        end)
+        stub(UIManager, "askForRestart")
+
+        G_reader_settings:saveSetting("plugins_disabled", {
+            test = true,
+        })
+
+        local plugin_items = PluginLoader:genPluginManagerSubItem()
+        plugin_items[1].hold_callback()
+        shown_widget._added_widgets[1].checked = true
+        shown_widget._added_widgets[1].callback()
+        shown_widget.ok_callback()
+
+        assert.is_true(shown_widget._added_widgets[1].enabled)
+        assert.stub(PluginLoader.stopPluginInstanceByName).was.called()
+        assert.stub(PluginLoader.deletePluginSettingsByName).was.called()
+        assert.is_nil(G_reader_settings:readSetting("plugins_disabled").test)
+
+        UIManager.askForRestart:revert()
+        UIManager.show:revert()
+        ffiUtil.purgeDir:revert()
+        PluginLoader.deletePluginSettingsByName:revert()
+        PluginLoader.stopPluginInstanceByName:revert()
+        PluginLoader.getPluginInstance:revert()
+        PluginLoader.loadPlugins:revert()
+    end)
+
+    it("shows the delete settings checkbox disabled when the plugin does not provide that hook", function()
+        local shown_widget
+
+        stub(PluginLoader, "loadPlugins", function()
+            return {
+                {
+                    name = "test",
+                    fullname = "Pretty Test",
+                    description = "from meta",
+                    path = "plugins/test.koplugin",
+                },
+            }, {}
+        end)
+        stub(PluginLoader, "getPluginInstance", function()
+            return nil
+        end)
+        stub(UIManager, "show", function(_, widget)
+            shown_widget = widget
+        end)
+
+        local plugin_items = PluginLoader:genPluginManagerSubItem()
+        plugin_items[1].hold_callback()
+
+        assert.is_not_nil(shown_widget._added_widgets)
+        assert.is_false(shown_widget._added_widgets[1].enabled)
+
+        UIManager.show:revert()
+        PluginLoader.getPluginInstance:revert()
+        PluginLoader.loadPlugins:revert()
+    end)
+
+    it("calls deletePluginSettings on the loaded plugin instance by internal plugin id", function()
+        local called_instance
+        local instance = {
+            deletePluginSettings = function(self)
+                called_instance = self
+            end,
+        }
+
+        stub(PluginLoader, "getPluginInstance", function()
+            return instance
+        end)
+
+        local ok, err = PluginLoader:deletePluginSettingsByName("test")
+
+        assert.is_true(ok)
+        assert.is_nil(err)
+        assert.are.equal(instance, called_instance)
+
+        PluginLoader.getPluginInstance:revert()
     end)
 end)
