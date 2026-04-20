@@ -117,6 +117,14 @@ function CreDocument:engineInit()
         -- initialize hyph dictionaries
         cre.initHyphDict("./data/hyph/")
 
+        -- Thai fork: point libthai at the bundled Thai word-break dictionary
+        -- (data/thai/thbrk.tri). libthai looks up LIBTHAI_DICTDIR lazily on
+        -- its first th_brk_new() call, so this only needs to be set once
+        -- before the first document containing Thai text is opened.
+        -- Wrapped in pcall so a missing posix setenv cdef cannot prevent
+        -- crengine from initialising on platforms where libthai is unused.
+        pcall(function() C.setenv("LIBTHAI_DICTDIR", "./data/thai", 1) end)
+
         -- we need to initialize the CRE font list
         local fonts = FontList:getFontList()
         for k, v in ipairs(fonts) do
