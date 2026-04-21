@@ -2,15 +2,14 @@
 
 #### KOReader is a document viewer primarily aimed at e-ink readers.
 
+> **Thai fork** — this build adds dictionary-based Thai word-segmentation
+> (libthai) so Thai text wraps on word boundaries instead of breaking
+> mid-word. Android ARM64 only; everything else is unchanged from upstream.
+
 [![AGPL Licence][badge-license]](COPYING)
 [![Latest release][badge-release]][link-gh-releases]
-[![Gitter][badge-gitter]][link-gitter]
-[![Mobileread][badge-mobileread]][link-forum]
-[![Build Status][badge-circleci]][link-circleci]
-[![Coverage Status][badge-coverage]][link-coverage]
-[![Weblate Status][badge-weblate]][link-weblate]
 
-[Download](https://github.com/koreader/koreader/releases) •
+[**Download Android APK**][link-gh-releases] •
 [User guide](http://koreader.rocks/user_guide/) •
 [Wiki](https://github.com/koreader/koreader/wiki) •
 [Developer docs](http://koreader.rocks/doc/)
@@ -41,17 +40,19 @@ Please check the [user guide](http://koreader.rocks/user_guide/) and the [wiki][
 <a href="https://github.com/koreader/koreader-artwork/raw/master/koreader-footnotes.png"><img src="https://github.com/koreader/koreader-artwork/raw/master/koreader-footnotes-thumbnail.png" alt="" width="200px"></a>
 <a href="https://github.com/koreader/koreader-artwork/raw/master/koreader-dictionary.png"><img src="https://github.com/koreader/koreader-artwork/raw/master/koreader-dictionary-thumbnail.png" alt="" width="200px"></a>
 
-## Installation
+## Installation (Android only)
 
-Please follow the model specific steps for your device:
+This fork ships only an **Android ARM64** APK. For other platforms, use
+the [upstream KOReader](https://github.com/koreader/koreader/releases).
 
-[Android](https://github.com/koreader/koreader/wiki/Installation-on-Android-devices) •
-[Cervantes](https://github.com/koreader/koreader/wiki/Installation-on-BQ-devices) •
-[Kindle](https://github.com/koreader/koreader/wiki/Installation-on-Kindle-devices) •
-[Kobo](https://github.com/koreader/koreader/wiki/Installation-on-Kobo-devices) •
-[Linux](https://github.com/koreader/koreader/wiki/Installation-on-desktop-linux) •
-[Pocketbook](https://github.com/koreader/koreader/wiki/Installation-on-PocketBook-devices) •
-[reMarkable](https://github.com/koreader/koreader/wiki/Installation-on-Remarkable)
+1. Download the latest APK from the [Releases page][link-gh-releases].
+2. On your Android device, enable **Install unknown apps** for your file
+   manager (Settings → Apps → <file manager> → Install unknown apps).
+3. Open the downloaded `.apk` file — tap **Install**.
+4. No Google Play required. Tested on iReader Ocean 5 Pro (Android 11).
+
+The APK is signed with a personal debug keystore (v1 + v2 + v3 schemes)
+— installable by sideload, not publishable to Play Store.
 
 
 ## Development
@@ -85,7 +86,7 @@ Right now we only support [liberapay](https://liberapay.com/KOReader) donations.
 [badge-gitter]:https://img.shields.io/gitter/room/koreader/koreader?color=red
 [badge-last-commit]:https://img.shields.io/github/last-commit/koreader/koreader?color=orange
 [badge-license]:https://img.shields.io/github/license/koreader/koreader
-[badge-release]:https://img.shields.io/github/release/koreader/koreader.svg
+[badge-release]:https://img.shields.io/github/release/captainboto/koreader-thai.svg
 [badge-mobileread]:https://img.shields.io/badge/forum-on_mobileread-lightgrey
 [badge-weblate]:https://hosted.weblate.org/widgets/koreader/-/koreader/svg-badge.svg
 
@@ -95,7 +96,7 @@ Right now we only support [liberapay](https://liberapay.com/KOReader) donations.
 [link-forum]:http://www.mobileread.com/forums/forumdisplay.php?f=276
 [link-gh-commits]:https://github.com/koreader/koreader/commits/master
 [link-gh-insights]:https://github.com/koreader/koreader/pulse
-[link-gh-releases]:https://github.com/koreader/koreader/releases
+[link-gh-releases]:https://github.com/captainboto/koreader-thai/releases
 [link-gitter]:https://gitter.im/koreader/koreader
 [link-issues-bugs]:https://github.com/koreader/koreader/issues?q=is%3Aopen+is%3Aissue+label%3Abug
 [link-issues-features]:https://github.com/koreader/koreader/issues?q=is%3Aopen+is%3Aissue+label%3Aenhancement
