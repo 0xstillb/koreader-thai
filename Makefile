@@ -51,6 +51,7 @@ define DATADIR_FILES
 $(CR3GUI_DATADIR_FILES)
 $(OUTPUT_DIR_DATAFILES)
 $(THIRDPARTY_DIR)/kpvcrlib/cr3.css
+$(wildcard data/thai)
 endef
 
 # files to link from main directory
