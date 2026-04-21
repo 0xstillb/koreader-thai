@@ -98,6 +98,50 @@ This fork ships only an **Android ARM64** APK. For other platforms
 The APK is signed with a personal debug keystore (v1 + v2 + v3 schemes)
 — installable by sideload, not publishable to Play Store.
 
+## Recommended settings for Thai reading
+
+The dict-break hook tells crengine *where* it *can* break a Thai line.
+You'll want a couple of typesetting knobs tuned so the result looks right
+in justified text — otherwise a short line with few word boundaries can
+stretch spaces too wide. These are the settings I use:
+
+Open a Thai book, then **Top menu → Typeset (A⁺) → Paragraph**:
+
+| Setting | Value | What it does |
+|---|---:|---|
+| **Max word expansion** | **20%** | Cap on how much a single space can stretch when justifying. Higher than the default "more" (15%) so short Thai lines don't look cramped, but still below the "obvious gap" threshold. |
+| **Word spacing — scaling** | **95%** | Base width of a space, relative to the font's metrics. 95% compensates for libthai's word boundaries sitting tightly next to Thai glyphs. |
+| **Word spacing — reduction** | **75%** | Floor (minimum) width a space is allowed to shrink to during justification. 75% prevents adjacent Thai words from visually merging. |
+
+These are *defaults I like*, not hard rules — adjust to taste. KOReader
+saves per-book settings under the book's `.sdr/` folder.
+
+### Bundled style tweaks (optional)
+
+The repo ships two example style tweaks under
+[`data/thai/styletweaks/`][link-styletweaks] for readers who want a
+typographically-tuned body text:
+
+- **`noto_thai_koreader_justify.css`** — Noto Sans Thai body + H1,
+  justified with `text-align-last: left` and a small negative
+  `word-spacing` to compensate for crengine's tendency to stretch spaces
+  on Thai runs.
+- **`noto_thai_koreader_sarabun.css`** — same idea, but the body text
+  uses **Sarabun** (a popular Thai book font) and only H1 stays on
+  Noto Sans Thai Bold.
+
+**To use on device:**
+1. Copy the `.css` file(s) from the app's data dir (or download from
+   this repo) to your KOReader `styletweaks/` folder:
+   - Android: `/storage/emulated/0/koreader/styletweaks/`
+2. Open a book → top menu → **Style tweaks** (the pencil icon).
+3. Tick the tweak you want. It applies immediately.
+
+For the Sarabun variant, install a Sarabun TTF (e.g. [Google Fonts
+Sarabun](https://fonts.google.com/specimen/Sarabun)) into
+`/storage/emulated/0/koreader/fonts/` first — the CSS will fall back
+to Noto Sans Thai if Sarabun is not found.
+
 ## Credits
 
 This fork is a personal build of [KOReader][link-koreader-gh] by the
@@ -122,5 +166,6 @@ LGPL-licensed.
 [link-koreader-issues]:https://github.com/koreader/koreader/issues
 [link-libthai]:https://linux.thai.net/projects/libthai
 [link-libdatrie]:https://linux.thai.net/projects/datrie
+[link-styletweaks]:https://github.com/captainboto/koreader-thai/tree/thai/data/thai/styletweaks
 [link-wiki]:https://github.com/koreader/koreader/wiki
 [link-wiki-zip]:https://github.com/koreader/koreader/wiki/ZIP
