@@ -3,36 +3,79 @@
 #### KOReader is a document viewer primarily aimed at e-ink readers.
 
 > **Thai fork** — this build adds dictionary-based Thai word-segmentation
-> (libthai) so Thai text wraps on word boundaries instead of breaking
-> mid-word. Android ARM64 only; everything else is unchanged from upstream.
+> (via [libthai][link-libthai]) so Thai text wraps on word boundaries
+> instead of breaking mid-word. Android ARM64 only; everything else is
+> unchanged from [upstream KOReader][link-koreader-gh].
 
 [![AGPL Licence][badge-license]](COPYING)
 [![Latest release][badge-release]][link-gh-releases]
 
 [**Download Android APK**][link-gh-releases] •
 [User guide](http://koreader.rocks/user_guide/) •
-[Wiki](https://github.com/koreader/koreader/wiki) •
-[Developer docs](http://koreader.rocks/doc/)
+[Wiki][link-wiki] •
+[Upstream KOReader][link-koreader-gh]
+
+## Thai word-segmentation
+
+Thai (like Lao, Khmer, Burmese) does not use spaces between words, so a
+reader must find word boundaries itself before deciding where to wrap
+lines. Upstream KOReader uses `libunibreak`, which classifies Thai as
+class **SA** ("complex, externally resolved") — without an external
+resolver it either breaks at *every* character or *never* breaks a Thai
+run. Both give poor output.
+
+This fork adds a **dictionary-based post-pass** on top of libunibreak:
+after the per-character break loop for a Thai run, the UTF-32 buffer is
+handed to [`libthai`][link-libthai]'s `th_brk`, which returns word-
+boundary offsets from the bundled Thai dictionary (`thbrk.tri`, ~580 KB).
+Those offsets are mapped back to `ALLOW_WRAP` flags in crengine's
+layout engine.
+
+The integration is **additive** — non-Thai text (English, numbers, CJK,
+punctuation) goes through the original libunibreak path unchanged, so
+rendering of English-only or mixed-language books is byte-identical to
+upstream.
+
+**Example** — the same sentence, same font, same column width:
+
+> ภาษาไทยเป็นภาษาที่ไม่มีช่องว่างระหว่างคำ
+
+| Upstream KOReader | This fork |
+|---|---|
+| breaks anywhere (mid-word) or one unbroken line | breaks at `ภาษา \| ไทย \| เป็น \| ภาษา \| ที่ \| ไม่ \| มี \| ช่องว่าง \| ระหว่าง \| คำ` |
+
+**Scope:**
+- Works for any reflowable format routed through crengine: **EPUB, FB2,
+  HTML, MOBI, RTF, TXT, CHM, DOC**.
+- Does **not** touch PDF / DjVu (those are fixed-layout; k2pdfopt reflow
+  is out of scope for this fork).
 
 ## Main features
 
-* **portable**: runs on embedded devices (Cervantes, Kindle, Kobo, PocketBook, reMarkable), Android and Linux computers. Developers can run a KOReader emulator in Linux and MacOS.
+* **Thai word-segmentation** — dictionary-based, via libthai *(new in
+  this fork)*.
+* **multi-format documents**: reflowable e-books (EPUB, FB2, Mobi, DOC,
+  RTF, HTML, CHM, TXT) and fixed-page formats (PDF, DjVu, CBT, CBZ).
+  Scanned PDF/DjVu can be reflowed with the built-in K2pdfopt library.
+  [ZIP files][link-wiki-zip] are also supported for some formats.
+* **full-featured reading**: highly customizable reader view with
+  typesetting options — arbitrary page margins, line spacing, external
+  fonts and styles. Multi-lingual hyphenation dictionaries bundled.
+* **integrated** with *calibre* (search metadata, receive ebooks
+  wirelessly, browse library via OPDS), *Wallabag*, *Wikipedia*,
+  *Google Translate*, and other content providers.
+* **optimized for e-ink devices**: custom UI without animation, with
+  paginated menus, adjustable text contrast, and easy zoom to fit
+  content or page in paged media.
+* **extensible**: via plugins.
+* **fast**: on some older devices, measured to have less than half the
+  page-turn delay of the built-in reading software.
+* **and much more**: look up words with StarDict dictionaries /
+  Wikipedia, add your own online OPDS catalogs and RSS feeds, FTP
+  client, SSH server, …
 
-* **multi-format documents**: supports fixed page formats (PDF, DjVu, CBT, CBZ) and reflowable e-book formats (EPUB, FB2, Mobi, DOC, RTF, HTML, CHM, TXT). Scanned PDF/DjVu documents can also be reflowed with the built-in K2pdfopt library. [ZIP files][link-wiki-zip] are also supported for some formats.
-
-* **full-featured reading**: multi-lingual user interface with a highly customizable reader view and many typesetting options. You can set arbitrary page margins, override line spacing and choose external fonts and styles. It has multi-lingual hyphenation dictionaries bundled into the application.
-
-* **integrated** with *calibre* (search metadata, receive ebooks wirelessly, browse library via OPDS), *Wallabag*, *Wikipedia*, *Google Translate* and other content providers.
-
-* **optimized for e-ink devices**: custom UI without animation, with paginated menus, adjustable text contrast, and easy zoom to fit content or page in paged media.
-
-* **extensible**: via plugins
-
-* **fast**: on some older devices, it has been measured to have less than half the page-turn delay as the built in reading software.
-
-* **and much more**: look up words with StarDict dictionaries / Wikipedia, add your own online OPDS catalogs and RSS feeds, over-the-air software updates, an FTP client, an SSH server, …
-
-Please check the [user guide](http://koreader.rocks/user_guide/) and the [wiki][link-wiki] to discover more features and to help us document them.
+See the [user guide](http://koreader.rocks/user_guide/) and the
+[wiki][link-wiki] to discover more features.
 
 ## Screenshots
 
@@ -42,64 +85,42 @@ Please check the [user guide](http://koreader.rocks/user_guide/) and the [wiki][
 
 ## Installation (Android only)
 
-This fork ships only an **Android ARM64** APK. For other platforms, use
-the [upstream KOReader](https://github.com/koreader/koreader/releases).
+This fork ships only an **Android ARM64** APK. For other platforms
+(Kindle, Kobo, PocketBook, Cervantes, reMarkable, Linux), use the
+[upstream KOReader][link-koreader-gh].
 
 1. Download the latest APK from the [Releases page][link-gh-releases].
 2. On your Android device, enable **Install unknown apps** for your file
-   manager (Settings → Apps → <file manager> → Install unknown apps).
+   manager (Settings → Apps → *your file manager* → Install unknown apps).
 3. Open the downloaded `.apk` file — tap **Install**.
 4. No Google Play required. Tested on iReader Ocean 5 Pro (Android 11).
 
 The APK is signed with a personal debug keystore (v1 + v2 + v3 schemes)
 — installable by sideload, not publishable to Play Store.
 
+## Credits
 
-## Development
+This fork is a personal build of [KOReader][link-koreader-gh] by the
+KOReader team and many contributors. **All the heavy lifting — the
+reader itself, rendering engines (crengine, MuPDF, DjVuLibre), UI,
+plugins — is their work.** The only contribution of this fork is the
+additive libthai integration for Thai word-segmentation.
 
-[Setting up a build environment](doc/Building.md) •
-[Collaborating with Git](doc/Collaborating_with_Git.md) •
-[Building targets](doc/Building_targets.md) •
-[Porting](doc/Porting.md) •
-[Developer docs](http://koreader.rocks/doc/)
+Upstream bugs → report at the [upstream issue tracker][link-koreader-issues].
+Fork-specific issues → [this repo's tracker][link-fork-issues].
 
-## Support
+Thai dictionary data (`thbrk.tri`) comes from the Ubuntu `libthai-data`
+package; [libthai][link-libthai] and [libdatrie][link-libdatrie] are
+LGPL-licensed.
 
-KOReader is developed and supported by volunteers all around the world. There are many ways you can help:
-
-- [fix bugs][link-issues-bugs] and [implement new features][link-issues-features]
-- [translate the program into your language][link-weblate] or improve an existing translation
-- document lesser-known features on the [wiki][link-wiki]
-- help others with your knowledge on the [forum][link-forum]
-
-Right now we only support [liberapay](https://liberapay.com/KOReader) donations.
-
-## Contributors
-
-[![Last commit][badge-last-commit]][link-gh-commits]
-[![Commit activity][badge-commit-activity]][link-gh-insights]
-
-[badge-bountysource]:https://img.shields.io/bountysource/team/koreader/activity?color=red
-[badge-circleci]:https://circleci.com/gh/koreader/koreader.svg?style=shield
-[badge-coverage]:https://codecov.io/gh/koreader/koreader/branch/master/graph/badge.svg
-[badge-commit-activity]:https://img.shields.io/github/commit-activity/m/koreader/koreader
-[badge-gitter]:https://img.shields.io/gitter/room/koreader/koreader?color=red
-[badge-last-commit]:https://img.shields.io/github/last-commit/koreader/koreader?color=orange
 [badge-license]:https://img.shields.io/github/license/koreader/koreader
 [badge-release]:https://img.shields.io/github/release/captainboto/koreader-thai.svg
-[badge-mobileread]:https://img.shields.io/badge/forum-on_mobileread-lightgrey
-[badge-weblate]:https://hosted.weblate.org/widgets/koreader/-/koreader/svg-badge.svg
 
-[link-bountysource]:https://www.bountysource.com/teams/koreader
-[link-circleci]:https://circleci.com/gh/koreader/koreader
-[link-coverage]:https://codecov.io/gh/koreader/koreader
-[link-forum]:http://www.mobileread.com/forums/forumdisplay.php?f=276
-[link-gh-commits]:https://github.com/koreader/koreader/commits/master
-[link-gh-insights]:https://github.com/koreader/koreader/pulse
 [link-gh-releases]:https://github.com/captainboto/koreader-thai/releases
-[link-gitter]:https://gitter.im/koreader/koreader
-[link-issues-bugs]:https://github.com/koreader/koreader/issues?q=is%3Aopen+is%3Aissue+label%3Abug
-[link-issues-features]:https://github.com/koreader/koreader/issues?q=is%3Aopen+is%3Aissue+label%3Aenhancement
-[link-weblate]:https://hosted.weblate.org/engage/koreader/?utm_source=widget
+[link-fork-issues]:https://github.com/captainboto/koreader-thai/issues
+[link-koreader-gh]:https://github.com/koreader/koreader
+[link-koreader-issues]:https://github.com/koreader/koreader/issues
+[link-libthai]:https://linux.thai.net/projects/libthai
+[link-libdatrie]:https://linux.thai.net/projects/datrie
 [link-wiki]:https://github.com/koreader/koreader/wiki
 [link-wiki-zip]:https://github.com/koreader/koreader/wiki/ZIP
