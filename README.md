@@ -2,10 +2,12 @@
 
 #### KOReader is a document viewer primarily aimed at e-ink readers.
 
-> **Thai fork** — this build adds dictionary-based Thai word-segmentation
-> (via [libthai][link-libthai]) so Thai text wraps on word boundaries
-> instead of breaking mid-word. Android ARM64 only; everything else is
-> unchanged from [upstream KOReader][link-koreader-gh].
+> **Thai fork** — this build adds a **neural + dictionary hybrid** Thai
+> word-segmenter so Thai text wraps on word boundaries instead of breaking
+> mid-word. Primary path is a small CNN ([Deepcut][link-deepcut], ~2 MB,
+> ~98% F1); fallback is [libthai][link-libthai]'s dictionary segmenter.
+> Android ARM64 only; everything else is unchanged from
+> [upstream KOReader][link-koreader-gh].
 
 [![AGPL Licence][badge-license]](COPYING)
 [![Latest release][badge-release]][link-gh-releases]
@@ -24,19 +26,31 @@ class **SA** ("complex, externally resolved") — without an external
 resolver it either breaks at *every* character or *never* breaks a Thai
 run. Both give poor output.
 
-This fork adds a **dictionary-based post-pass** on top of libunibreak:
+This fork adds a **word-segmentation post-pass** on top of libunibreak:
 after the per-character break loop for a Thai run, the UTF-32 buffer is
-handed to [`libthai`][link-libthai]'s `th_brk`, which returns word-
-boundary offsets from the bundled Thai dictionary (`thbrk.tri`, ~580 KB).
-Those offsets are mapped back to `ALLOW_WRAP` flags in crengine's
-layout engine.
+handed to a hybrid segmenter that returns word-boundary offsets, and
+those offsets are mapped back to `ALLOW_WRAP` flags in crengine's layout
+engine.
+
+**Two engines, one hook:**
+
+1. **Primary — [Deepcut][link-deepcut] (CNN).** A small convolutional
+   network (~535k params) trained on the BEST2010 corpus, exported to
+   ONNX and run on-device via [ONNX Runtime Mobile][link-ort]. Scores
+   **~98% F1** on modern Thai text, closing the gap on the four things
+   a dictionary-only segmenter misses: **proper names, loanwords, slang
+   and compound words**. Model file: `data/thai/deepcut.onnx` (~2 MB).
+2. **Fallback — [libthai][link-libthai]'s `th_brk`.** Dictionary-based,
+   ~85% F1, tiny (`thbrk.tri`, ~580 KB). Kicks in if the ORT session
+   fails to initialise (missing `.so`, missing model file, unsupported
+   op) so Thai still word-breaks — just less cleverly.
 
 The integration is **additive** — non-Thai text (English, numbers, CJK,
 punctuation) goes through the original libunibreak path unchanged, so
 rendering of English-only or mixed-language books is byte-identical to
 upstream.
 
-**Example** — the same sentence, same font, same column width:
+**Example 1** — same sentence, same font, same column width:
 
 > ภาษาไทยเป็นภาษาที่ไม่มีช่องว่างระหว่างคำ
 
@@ -44,16 +58,34 @@ upstream.
 |---|---|
 | breaks anywhere (mid-word) or one unbroken line | breaks at `ภาษา \| ไทย \| เป็น \| ภาษา \| ที่ \| ไม่ \| มี \| ช่องว่าง \| ระหว่าง \| คำ` |
 
+**Example 2** — a proper name + a loanword, where a dict-only segmenter
+typically fails:
+
+> คุณสมชายไปกินข้าวที่ร้านสตาร์บัคส์กับเพื่อนเมื่อวานนี้
+
+| libthai (fallback) | Deepcut (primary) |
+|---|---|
+| `คุณ \| สม \| ชาย \| ไป \| กิน \| ข้าว \| ที่ \| ร้าน \| สตา \| ร์ \| บัค \| ส์ \| กับ \| เพื่อน \| เมื่อวาน \| นี้` | `คุณ \| สมชาย \| ไป \| กิน \| ข้าว \| ที่ \| ร้าน \| สตาร์บัคส์ \| กับ \| เพื่อน \| เมื่อวานนี้` |
+| splits the name "สมชาย" and "Starbucks" into fragments | keeps names and brand loanwords whole |
+
 **Scope:**
 - Works for any reflowable format routed through crengine: **EPUB, FB2,
   HTML, MOBI, RTF, TXT, CHM, DOC**.
 - Does **not** touch PDF / DjVu (those are fixed-layout; k2pdfopt reflow
   is out of scope for this fork).
 
+**Performance notes (iReader Ocean 5 Pro, Mediatek G99, 4 GB RAM):**
+- ORT session init: one-off ~200 ms on first Thai paragraph (lazy).
+- Per-page Thai inference: ~10–20 ms for a typical 40-char line.
+- First-time open of a 20–30 MB Thai EPUB: **+30–60 s** vs libthai-only
+  build (crengine pre-layouts every paragraph at open; ORT runs once per
+  Thai run then results are cached in the paginated document). Subsequent
+  page turns are unchanged.
+
 ## Main features
 
-* **Thai word-segmentation** — dictionary-based, via libthai *(new in
-  this fork)*.
+* **Thai word-segmentation** — hybrid CNN (Deepcut, ~98% F1) primary
+  path + libthai dictionary fallback *(new in this fork)*.
 * **multi-format documents**: reflowable e-books (EPUB, FB2, Mobi, DOC,
   RTF, HTML, CHM, TXT) and fixed-page formats (PDF, DjVu, CBT, CBZ).
   Scanned PDF/DjVu can be reflowed with the built-in K2pdfopt library.
@@ -148,14 +180,22 @@ This fork is a personal build of [KOReader][link-koreader-gh] by the
 KOReader team and many contributors. **All the heavy lifting — the
 reader itself, rendering engines (crengine, MuPDF, DjVuLibre), UI,
 plugins — is their work.** The only contribution of this fork is the
-additive libthai integration for Thai word-segmentation.
+additive Thai word-segmentation hook (Deepcut + libthai).
 
 Upstream bugs → report at the [upstream issue tracker][link-koreader-issues].
 Fork-specific issues → [this repo's tracker][link-fork-issues].
 
-Thai dictionary data (`thbrk.tri`) comes from the Ubuntu `libthai-data`
-package; [libthai][link-libthai] and [libdatrie][link-libdatrie] are
-LGPL-licensed.
+Third-party components bundled for Thai:
+
+- **Deepcut CNN weights** (`data/thai/deepcut.onnx`, ~2 MB) — converted
+  from [Deepcut][link-deepcut]'s `cnn_without_ne_ab.h5` Keras checkpoint
+  to ONNX opset 15. MIT-licensed.
+- **Thai dictionary data** (`data/thai/thbrk.tri`, ~580 KB) — from the
+  Ubuntu `libthai-data` package. [libthai][link-libthai] and
+  [libdatrie][link-libdatrie] are LGPL-licensed.
+- **[ONNX Runtime Mobile][link-ort] 1.17.3** (`libonnxruntime.so`,
+  ~3.7 MB, arm64-v8a) — prebuilt from Microsoft's Maven repo, MIT-
+  licensed. Runs the Deepcut CNN on-device.
 
 [badge-license]:https://img.shields.io/github/license/koreader/koreader
 [badge-release]:https://img.shields.io/github/release/captainboto/koreader-thai.svg
@@ -166,6 +206,8 @@ LGPL-licensed.
 [link-koreader-issues]:https://github.com/koreader/koreader/issues
 [link-libthai]:https://linux.thai.net/projects/libthai
 [link-libdatrie]:https://linux.thai.net/projects/datrie
+[link-deepcut]:https://github.com/rkcosmos/deepcut
+[link-ort]:https://onnxruntime.ai/docs/tutorials/mobile/
 [link-styletweaks]:https://github.com/captainboto/koreader-thai/tree/thai/data/thai/styletweaks
 [link-wiki]:https://github.com/koreader/koreader/wiki
 [link-wiki-zip]:https://github.com/koreader/koreader/wiki/ZIP

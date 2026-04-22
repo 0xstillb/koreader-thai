@@ -117,13 +117,23 @@ function CreDocument:engineInit()
         -- initialize hyph dictionaries
         cre.initHyphDict("./data/hyph/")
 
-        -- Thai fork: point libthai at the bundled Thai word-break dictionary
-        -- (data/thai/thbrk.tri). libthai looks up LIBTHAI_DICTDIR lazily on
-        -- its first th_brk_new() call, so this only needs to be set once
-        -- before the first document containing Thai text is opened.
-        -- Wrapped in pcall so a missing posix setenv cdef cannot prevent
-        -- crengine from initialising on platforms where libthai is unused.
+        -- Thai fork: point the Thai word-segmenter at its bundled assets.
+        --
+        -- Two env vars are picked up lazily inside crengine (thaibreak.cpp)
+        -- on the first Thai-containing document:
+        --
+        --   LIBTHAI_DICTDIR      — data/thai/thbrk.tri (dictionary segmenter,
+        --                          ~580 KB, kept as fallback)
+        --   DEEPCUT_MODEL_PATH   — data/thai/deepcut.onnx (CNN segmenter,
+        --                          ~2 MB, primary path; ~98% F1 vs ~85% for
+        --                          libthai, closes the gap on proper names,
+        --                          loanwords, slang and compound words)
+        --
+        -- Both are set once before the first document opens. Wrapped in
+        -- pcall so a missing posix setenv cdef cannot prevent crengine from
+        -- initialising on platforms where the Thai path is never taken.
         pcall(function() C.setenv("LIBTHAI_DICTDIR", "./data/thai", 1) end)
+        pcall(function() C.setenv("DEEPCUT_MODEL_PATH", "./data/thai/deepcut.onnx", 1) end)
 
         -- we need to initialize the CRE font list
         local fonts = FontList:getFontList()
