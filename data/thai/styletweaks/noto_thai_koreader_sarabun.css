@@ -30,16 +30,16 @@ body {
 }
 
 /* ========================================
-   H1 — TOC / chapter heading (Noto Sans Thai)
+   H1, H2, H3 — TOC / chapter heading
    ======================================== */
-h1,
-.h1,
-.p-h1 {
+h1, .h1, .p-h1,
+h2, .h2, .p-h2,
+h3, .h3, .p-h3 {
     font-family: "Noto Sans Thai", sans-serif !important;
     font-weight: 700 !important;
     font-size: 1.615em !important;       /* 63pt / 39pt */
     line-height: 1.2 !important;
-    text-align: center !important;
+    text-align: center !important;       /* ไม่ justify */
     text-align-last: center !important;
     margin-top: 1.5em !important;
     margin-bottom: 1.692em !important;   /* 66pt / 39pt */
