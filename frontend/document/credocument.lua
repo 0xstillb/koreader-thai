@@ -129,11 +129,22 @@ function CreDocument:engineInit()
         --                          libthai, closes the gap on proper names,
         --                          loanwords, slang and compound words)
         --
+        -- Resolve from this file's absolute path so we don't depend on the
+        -- process working directory (which may differ on some Android launchers).
+        local source = debug.getinfo(1, "S").source or ""
+        if source:sub(1, 1) == "@" then
+            source = source:sub(2)
+        end
+        local module_root = source:match("^(.*)/frontend/document/credocument%.lua$")
+        local thai_dir = module_root and (module_root .. "/data/thai") or "./data/thai"
+        local deepcut_model = thai_dir .. "/deepcut.onnx"
+
         -- Both are set once before the first document opens. Wrapped in
         -- pcall so a missing posix setenv cdef cannot prevent crengine from
         -- initialising on platforms where the Thai path is never taken.
-        pcall(function() C.setenv("LIBTHAI_DICTDIR", "./data/thai", 1) end)
-        pcall(function() C.setenv("DEEPCUT_MODEL_PATH", "./data/thai/deepcut.onnx", 1) end)
+        pcall(function() C.setenv("LIBTHAI_DICTDIR", thai_dir, 1) end)
+        pcall(function() C.setenv("DEEPCUT_MODEL_PATH", deepcut_model, 1) end)
+        logger.dbg("Thai segmenter assets:", thai_dir, deepcut_model)
 
         -- we need to initialize the CRE font list
         local fonts = FontList:getFontList()
