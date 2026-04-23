@@ -157,6 +157,11 @@ endif
 	$(SYMLINK) plugins $(INSTALL_DIR)/koreader/
 	@echo "[*] Install resources"
 	$(SYMLINK) resources/fonts/* $(INSTALL_DIR)/koreader/fonts/
+	# Thai fork: also ship Maitree / NotoSansThai / Sarabun so the user does
+	# not have to side-load a Thai body-font by hand. fonts-thai/ is a
+	# fork-only top-level dir (not a submodule), symlinked next to the
+	# upstream font families above. Total bundle add: ~3 MB.
+	test -d fonts-thai && $(SYMLINK) fonts-thai/* $(INSTALL_DIR)/koreader/fonts/ || true
 	install -d $(INSTALL_DIR)/koreader/{screenshots,fonts/host,ota}
 	# Note: the data dir is distinct from the one in base/build/…!
 	@echo "[*] Install data files"
