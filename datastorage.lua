@@ -105,6 +105,7 @@ local function initDataDir()
         "plugins",
         "screenshots",
         "settings",
+        "fonts",
         "styletweaks",
     }
     local datadir = DataStorage:getDataDir()
@@ -116,6 +117,71 @@ local function initDataDir()
     end
 end
 
+local function copyFileIfMissing(src, dst)
+    if lfs.attributes(dst, "mode") == "file" then
+        return
+    end
+    local src_f = io.open(src, "rb")
+    if not src_f then
+        return
+    end
+    local dst_f = io.open(dst, "wb")
+    if not dst_f then
+        src_f:close()
+        return
+    end
+    dst_f:write(src_f:read("*a"))
+    dst_f:close()
+    src_f:close()
+end
+
+local function seedAndroidThaiAssets()
+    if not isAndroid then
+        return
+    end
+
+    local datadir = DataStorage:getDataDir()
+    local user_fonts_dir = datadir .. "/fonts"
+    local user_tweaks_dir = datadir .. "/styletweaks"
+
+    local bundled_font_families = {
+        "Maitree",
+        "NotoSansThai",
+        "Sarabun",
+    }
+    for _, family in ipairs(bundled_font_families) do
+        local src_dir = "fonts/" .. family
+        local dst_dir = user_fonts_dir .. "/" .. family
+        if lfs.attributes(src_dir, "mode") == "directory" then
+            if lfs.attributes(dst_dir, "mode") ~= "directory" then
+                lfs.mkdir(dst_dir)
+            end
+            for filename in lfs.dir(src_dir) do
+                if filename ~= "." and filename ~= ".." then
+                    local src = src_dir .. "/" .. filename
+                    if lfs.attributes(src, "mode") == "file" then
+                        copyFileIfMissing(src, dst_dir .. "/" .. filename)
+                    end
+                end
+            end
+        end
+    end
+
+    local src_tweaks_dir = "data/thai/styletweaks"
+    if lfs.attributes(src_tweaks_dir, "mode") == "directory" then
+        for filename in lfs.dir(src_tweaks_dir) do
+            if filename ~= "." and filename ~= ".."
+                and string.match(filename, "%.css$") then
+                local src = src_tweaks_dir .. "/" .. filename
+                if lfs.attributes(src, "mode") == "file" then
+                    copyFileIfMissing(src, user_tweaks_dir .. "/" .. filename)
+                end
+            end
+        end
+    end
+end
+
 initDataDir()
+seedAndroidThaiAssets()
 
 return DataStorage
