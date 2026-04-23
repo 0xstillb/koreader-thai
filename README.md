@@ -50,6 +50,11 @@ punctuation) goes through the original libunibreak path unchanged, so
 rendering of English-only or mixed-language books is byte-identical to
 upstream.
 
+**Post-process rules currently enabled (Deepcut success path only):**
+- `แซ่ + (Chinese surname whitelist)` — force split after `แซ่`, suppress
+  mid-surname splits, force split after surname.
+- `รีบ` — glue known false split (`รี|บ`) back into one word.
+
 **Example 1** — same sentence, same font, same column width:
 
 > ภาษาไทยเป็นภาษาที่ไม่มีช่องว่างระหว่างคำ
@@ -162,17 +167,15 @@ typographically-tuned body text:
   uses **Sarabun** (a popular Thai book font) and only H1 stays on
   Noto Sans Thai Bold.
 
-**To use on device:**
-1. Copy the `.css` file(s) from the app's data dir (or download from
-   this repo) to your KOReader `styletweaks/` folder:
-   - Android: `/storage/emulated/0/koreader/styletweaks/`
-2. Open a book → top menu → **Style tweaks** (the pencil icon).
+**On-device behavior (Android ARM64 fork build):**
+1. On first app launch, KOReader auto-seeds bundled Thai assets to:
+   - `/storage/emulated/0/koreader/styletweaks/`
+   - `/storage/emulated/0/koreader/fonts/`
+2. Open a book → top menu → **Style tweaks** (pencil icon).
 3. Tick the tweak you want. It applies immediately.
 
-For the Sarabun variant, install a Sarabun TTF (e.g. [Google Fonts
-Sarabun](https://fonts.google.com/specimen/Sarabun)) into
-`/storage/emulated/0/koreader/fonts/` first — the CSS will fall back
-to Noto Sans Thai if Sarabun is not found.
+No manual font install is required for the bundled Sarabun/Noto Sans Thai/
+Maitree set in this fork build.
 
 ## Credits
 
