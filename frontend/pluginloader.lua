@@ -21,6 +21,46 @@ local T = ffiUtil.template
 
 local DEFAULT_PLUGIN_PATH = "plugins"
 
+local BUILTIN_PLUGINS = {
+    ["archiveviewer"] = true,
+    ["autodim"] = true,
+    ["autostandby"] = true,
+    ["autosuspend"] = true,
+    ["autoturn"] = true,
+    ["autowarmth"] = true,
+    ["batterystat"] = true,
+    ["bookshortcuts"] = true,
+    ["calibre"] = true,
+    ["cloudstorage"] = true,
+    ["coverbrowser"] = true,
+    ["coverimage"] = true,
+    ["docsettingtweak"] = true,
+    ["exporter"] = true,
+    ["externalkeyboard"] = true,
+    ["gestures"] = true,
+    ["hello"] = true,
+    ["hotkeys"] = true,
+    ["httpinspector"] = true,
+    ["japanese"] = true,
+    ["keepalive"] = true,
+    ["kosync"] = true,
+    ["movetoarchive"] = true,
+    ["newsdownloader"] = true,
+    ["opds"] = true,
+    ["perceptionexpander"] = true,
+    ["profiles"] = true,
+    ["qrclipboard"] = true,
+    ["readtimer"] = true,
+    ["SSH"] = true,
+    ["statistics"] = true,
+    ["systemstat"] = true,
+    ["terminal"] = true,
+    ["texteditor"] = true,
+    ["timesync"] = true,
+    ["vocabbuilder"] = true,
+    ["wallabag"] = true,
+}
+
 local DEPRECATION_MESSAGES = {
     remove = _("This plugin is unmaintained and will be removed soon."),
     feature = _("The following features are unmaintained and will be removed soon:"),
@@ -274,9 +314,10 @@ function PluginLoader:genPluginManagerSubItem()
         table.sort(self.all_plugins, function(v1, v2) return v1.fullname < v2.fullname end)
     end
 
-    local plugin_table = {}
+    local builtin_plugin_items = {}
+    local user_plugin_items = {}
     for __, plugin in ipairs(self.all_plugins) do
-        table.insert(plugin_table, {
+        local item = {
             text = plugin.fullname,
             checked_func = function()
                 return plugin.enable
@@ -339,9 +380,25 @@ function PluginLoader:genPluginManagerSubItem()
                 confirmbox:addWidget(delete_plugin_settings_checkbox)
                 UIManager:show(confirmbox)
             end,
-        })
+        }
+        if BUILTIN_PLUGINS[plugin.name] == true then
+            table.insert(builtin_plugin_items, item)
+        else
+            table.insert(user_plugin_items, item)
+        end
     end
-    return plugin_table
+    return {
+        {
+            text = _("Built-in plugins"),
+            enabled_func = function() return #builtin_plugin_items > 0 end,
+            sub_item_table = builtin_plugin_items,
+        },
+        {
+            text = _("User plugins"),
+            enabled_func = function() return #user_plugin_items > 0 end,
+            sub_item_table = user_plugin_items,
+        },
+    }
 end
 
 function PluginLoader:createPluginInstance(plugin, attr)

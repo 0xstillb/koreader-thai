@@ -152,7 +152,7 @@ describe("PluginLoader module", function()
         stub(UIManager, "askForRestart")
 
         local plugin_items = PluginLoader:genPluginManagerSubItem()
-        plugin_items[1].callback()
+        plugin_items[2].sub_item_table[1].callback()
 
         local plugins_disabled = G_reader_settings:readSetting("plugins_disabled")
         assert.is_true(plugins_disabled.test)
@@ -197,7 +197,7 @@ describe("PluginLoader module", function()
         })
 
         local plugin_items = PluginLoader:genPluginManagerSubItem()
-        plugin_items[1].hold_callback()
+        plugin_items[2].sub_item_table[1].hold_callback()
         shown_widget._added_widgets[1].checked = true
         shown_widget._added_widgets[1].callback()
         shown_widget.ok_callback()
@@ -237,7 +237,7 @@ describe("PluginLoader module", function()
         end)
 
         local plugin_items = PluginLoader:genPluginManagerSubItem()
-        plugin_items[1].hold_callback()
+        plugin_items[2].sub_item_table[1].hold_callback()
 
         assert.is_not_nil(shown_widget._added_widgets)
         assert.is_false(shown_widget._added_widgets[1].enabled)
