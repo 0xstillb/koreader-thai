@@ -1243,53 +1243,6 @@ function VocabItemWidget:onShowBookAssignment(title_changed_cb)
     UIManager:show(sort_widget)
 end
 
-function VocabItemWidget:onDictButtonsReady(dict_popup, buttons)
-    if not self.item or self.item.word ~= dict_popup.word then
-        return false
-    end
-    if self.item.due_time > os.time() then
-        return true
-    end
-    local tweaked_button_count = 0
-    local early_break
-    for j = 1, #buttons do
-        for k = 1, #buttons[j] do
-            if buttons[j][k].id == "highlight" and not buttons[j][k].enabled then
-                buttons[j][k] = {
-                    id = "got_it",
-                    text = _("Got it"),
-                    callback = function()
-                        self.show_parent:gotItFromDict(self.item.word)
-                        dict_popup:onClose()
-                    end
-                }
-                if tweaked_button_count == 1 then
-                    early_break = true
-                    break
-                end
-                tweaked_button_count = tweaked_button_count + 1
-            elseif buttons[j][k].id == "search" and not buttons[j][k].enabled then
-                buttons[j][k] = {
-                    id = "forgot",
-                    text = _("Forgot"),
-                    callback = function()
-                        self.show_parent:forgotFromDict(self.item.word)
-                        dict_popup:onClose()
-                    end
-                }
-                if tweaked_button_count == 1 then
-                    early_break = true
-                    break
-                end
-                tweaked_button_count = tweaked_button_count + 1
-            end
-        end
-        if early_break then break end
-    end
-    return true -- we consume the event here!
-end
-
-
 --[[--
 Container widget. Same as sortwidget
 --]]--
@@ -2007,6 +1960,7 @@ local VocabBuilder = WidgetContainer:extend{
 
 function VocabBuilder:init()
     self.ui.menu:registerToMainMenu(self)
+    self:registerDictButtons()
     self:onDispatcherRegisterActions()
 end
 
@@ -2019,24 +1973,39 @@ function VocabBuilder:addToMainMenu(menu_items)
     }
 end
 
-function VocabBuilder:onDictButtonsReady(dict_popup, buttons)
-    if settings.enabled then
-        -- words are added automatically, no need to add the button
-        return
-    end
-    if dict_popup.is_wiki_fullpage then
-        return
-    end
-    local is_adding = true
-    table.insert(buttons, 1, {{
+function VocabBuilder:registerDictButtons()
+    if not self.ui or not self.ui.dictionary then return end
+    self.ui.dictionary:addToDictButtons({
         id = "vocabulary",
+        menu_text = _("Vocabulary builder"),
         text = _("Add to vocabulary builder"),
+        insert_first = true,
         font_bold = false,
-        callback = function()
+        auto_row_style_width_min_row_size = 2,
+        auto_row_style_width_ratio = 0.7,
+        show_func = function(dict_popup)
+            if settings.enabled then
+                -- words are added automatically, no need to add the button.
+                return false
+            end
+            if self.widget and self.widget.current_lookup_word == dict_popup.word then
+                -- We are calling from within the vocab builder, and the word is already
+                -- added to vocab builder, no need to add the button for review.
+                return false
+            end
+            return true
+        end,
+        callback = function(dict_popup)
             local button = dict_popup.button_table.button_by_id["vocabulary"]
             if not button then return end
+
+            local is_adding = dict_popup._vocabbuilder_action_state
+            if is_adding == nil then
+                is_adding = true
+            end
+
             if is_adding then
-                is_adding = false
+                dict_popup._vocabbuilder_action_state = false
                 local book_title = (dict_popup.ui.doc_props and dict_popup.ui.doc_props.display_title) or _("Dictionary lookup")
                 dict_popup.ui:handleEvent(Event:new("WordLookedUp", dict_popup.lookupword, book_title, true)) -- is_manual: true
                 button:setText(_("Remove from vocabulary builder"), button.width)
@@ -2048,7 +2017,7 @@ function VocabBuilder:onDictButtonsReady(dict_popup, buttons)
                     text = T(_("Remove word \"%1\" from vocabulary builder?"), dict_popup.lookupword),
                     ok_text = _("Remove"),
                     ok_callback = function()
-                        is_adding = true
+                        dict_popup._vocabbuilder_action_state = true
                         DB:remove({word = dict_popup.lookupword})
                         button:setText(_("Add to vocabulary builder"), button.width)
                         UIManager:setDirty(dict_popup, function()
@@ -2057,8 +2026,51 @@ function VocabBuilder:onDictButtonsReady(dict_popup, buttons)
                     end
                 })
             end
+        end,
+    })
+    local function getCurrentVocabItem(dict_popup)
+        if not self.widget then
+            return nil
         end
-    }})
+        for vocabItem in self.widget:vocabItemIter() do
+            if vocabItem.item and vocabItem.item.word == dict_popup.word then
+                return vocabItem.item
+            end
+        end
+        return nil
+    end
+    self.ui.dictionary:addToDictButtons({
+        id = "forgot",
+        text = _("Forgot"),
+        conditional = true,
+        row_group = "vocab_review",
+        show_func = function(dict_popup)
+            local item = getCurrentVocabItem(dict_popup)
+            return item ~= nil and item.due_time <= os.time()
+        end,
+        callback = function(dict_popup)
+            local item = getCurrentVocabItem(dict_popup)
+            if not item or not self.widget then return end
+            self.widget:forgotFromDict(item.word)
+            dict_popup:onClose()
+        end,
+    })
+    self.ui.dictionary:addToDictButtons({
+        id = "got_it",
+        text = _("Got it"),
+        conditional = true,
+        row_group = "vocab_review",
+        show_func = function(dict_popup)
+            local item = getCurrentVocabItem(dict_popup)
+            return item ~= nil and item.due_time <= os.time()
+        end,
+        callback = function(dict_popup)
+            local item = getCurrentVocabItem(dict_popup)
+            if not item or not self.widget then return end
+            self.widget:gotItFromDict(item.word)
+            dict_popup:onClose()
+        end,
+    })
 end
 
 function VocabBuilder:onDispatcherRegisterActions()
