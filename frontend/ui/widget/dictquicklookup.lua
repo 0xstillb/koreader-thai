@@ -680,6 +680,7 @@ function DictQuickLookup:registerKeyEvents()
             self.key_events.FastRightTextSelectorIndicator = { { modifier, "Right" }, event = "FindInTextOrMoveSelectorIndicator", args = { 1,  0, true } }
             if Device:hasKeyboard() then
                 self.key_events.LookupInputWordClear = { { Input.group.AlphaNumeric }, { "Shift", Input.group.AlphaNumeric }, event = "LookupInputWord" }
+                self.key_events.LookupInputWordEmpty = { { " " }, event = "LookupInputWord" }
                 if G_reader_settings:nilOrFalse("backspace_as_back") then
                     -- We need to concat here so that the 'del' event press, which propagates to inputText (desirable for previous key_event,
                     -- i.e., LookupInputWordClear) does not remove the last char of self.word
@@ -992,7 +993,7 @@ function DictQuickLookup:populatePluginButtons(pool, default_layout, extra_layou
             if spec.conditional then
                 local row_key = spec.row_group
                 add_conditional_button(row_key or spec.id, spec.id)
-            elseif default_layout and not DictQuickLookup.layoutContainsButtonId(default_layout, spec.id) then
+            elseif default_layout and not self.layoutContainsButtonId(default_layout, spec.id) then
                 local i = spec.insert_first and 1 or (#default_layout + 1)
                 table.insert(default_layout, i, { spec.id })
             end
@@ -1800,6 +1801,9 @@ function DictQuickLookup:onLookupInputWord(hint, ev)
     end
     -- Key-event path: open dialog now, then inject key during next tick.
     if Device:isSDL() and not hint and ev and ev.key then
+        if ev.key == " " then
+            return self:lookupInputWord()
+        end
         local k = tostring(ev.key)
         local is_shift = ev.modifiers and ev.modifiers.Shift
         local letter = is_shift and k or k:lower()
