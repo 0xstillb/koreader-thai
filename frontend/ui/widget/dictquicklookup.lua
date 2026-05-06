@@ -992,7 +992,7 @@ function DictQuickLookup:populatePluginButtons(pool, default_layout, extra_layou
             if spec.conditional then
                 local row_key = spec.row_group
                 add_conditional_button(row_key or spec.id, spec.id)
-            elseif default_layout and not DictQuickLookup.layoutContainsButtonId(default_layout, spec.id) then
+            elseif default_layout and not self.layoutContainsButtonId(default_layout, spec.id) then
                 local i = spec.insert_first and 1 or (#default_layout + 1)
                 table.insert(default_layout, i, { spec.id })
             end

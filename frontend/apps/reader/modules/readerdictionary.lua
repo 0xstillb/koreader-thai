@@ -518,6 +518,10 @@ function ReaderDictionary:_genCustomizeButtonsMenu()
         if not spec.conditional and spec.menu_text then
             table.insert(available_options, { text = spec.menu_text, id = spec.id })
         end
+        if not spec.conditional and not DictQuickLookup.layoutContainsButtonId(self.default_layout, spec.id) then
+            local i = spec.insert_first and 1 or (#self.default_layout + 1)
+            table.insert(self.default_layout, i, { spec.id })
+        end
     end
 
     -- This function return the config from settings.
