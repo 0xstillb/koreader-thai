@@ -66,9 +66,7 @@ function FileManagerMenu:registerKeyEvents()
         if Device:hasFewKeys() then
             self.key_events.KeyPressShowMenu = { { { "Menu", "Right" } } }
         end
-        if Device:hasScreenKB() then
-            self.key_events.OpenLastDoc = { { "ScreenKB", "Back" } }
-        end
+        -- OpenLastDoc = { { "ScreenKB", "Back" } } handled by hotkeys
     end
 end
 
@@ -342,6 +340,7 @@ function FileManagerMenu:setUpdateItemTable()
                             local current_path = G_reader_settings:readSetting("home_dir")
                             local default_path = filemanagerutil.getDefaultDir()
                             local caller_callback = function(path)
+                                self.ui.folder_shortcuts:updateShortcut("home_dir", path)
                                 G_reader_settings:saveSetting("home_dir", path)
                                 self.ui:updateTitleBarPath()
                             end
