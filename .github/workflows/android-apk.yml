@@ -53,7 +53,9 @@ jobs:
             base/thirdparty/libdatrie/CMakeLists.txt
 
       - name: Build Android ARM64 APK
-        run: ./kodev release android-arm64
+        run: |
+          unset ANDROID_HOME ANDROID_SDK_ROOT ANDROID_NDK_HOME ANDROID_NDK_ROOT
+          ./kodev release android-arm64
 
       - name: List APKs
         run: find . -name '*.apk' -print
