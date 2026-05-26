@@ -1,0 +1,56 @@
+name: android-apk
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  android-arm64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: tree:0
+          show-progress: false
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            autoconf \
+            automake \
+            build-essential \
+            ca-certificates \
+            cmake \
+            gcc-multilib \
+            gettext \
+            git \
+            libtool \
+            libtool-bin \
+            meson \
+            nasm \
+            ninja-build \
+            openjdk-17-jdk-headless \
+            p7zip-full \
+            patch \
+            pkg-config \
+            unzip \
+            wget
+
+      - name: Build Android ARM64 APK
+        run: ./kodev release android-arm64
+
+      - name: List APKs
+        run: find . -name '*.apk' -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: koreader-thai-android-arm64-apk
+          path: '**/*.apk'
