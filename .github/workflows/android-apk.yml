@@ -43,6 +43,12 @@ jobs:
             unzip \
             wget
 
+      - name: Patch libdatrie Android configure probe
+        run: |
+          sed -i \
+            's/ac_cv_func_iconv_open=yes/ac_cv_func_iconv_open=yes datrie_cv_langinfo_codeset=yes/' \
+            base/thirdparty/libdatrie/CMakeLists.txt
+
       - name: Build Android ARM64 APK
         run: ./kodev release android-arm64
 
