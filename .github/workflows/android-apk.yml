@@ -43,6 +43,9 @@ jobs:
             unzip \
             wget
 
+      - name: Fetch thirdparty
+        run: make TARGET= fetchthirdparty
+
       - name: Patch libdatrie Android configure probe
         run: |
           sed -i \
