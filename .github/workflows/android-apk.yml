@@ -57,11 +57,39 @@ jobs:
           unset ANDROID_HOME ANDROID_SDK_ROOT ANDROID_NDK_HOME ANDROID_NDK_ROOT
           ./kodev release android-arm64
 
+      - name: Sign APK
+        run: |
+          set -euo pipefail
+          build_tools="$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)"
+          unsigned_apk="$(find . -maxdepth 1 -name 'koreader-android-arm64-*.apk' | head -n1)"
+          test -n "${unsigned_apk}"
+          keytool -genkeypair \
+            -keystore "${RUNNER_TEMP}/koreader-thai-debug.keystore" \
+            -storepass android \
+            -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          "${build_tools}/zipalign" -f -p 4 "${unsigned_apk}" "${RUNNER_TEMP}/koreader-thai-aligned.apk"
+          "${build_tools}/apksigner" sign \
+            --ks "${RUNNER_TEMP}/koreader-thai-debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out koreader-thai-android-arm64.apk \
+            "${RUNNER_TEMP}/koreader-thai-aligned.apk"
+          "${build_tools}/apksigner" verify --verbose --print-certs koreader-thai-android-arm64.apk
+
       - name: List APKs
-        run: find . -name '*.apk' -print
+        run: ls -lh koreader-thai-android-arm64.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
           name: koreader-thai-android-arm64-apk
-          path: '**/*.apk'
+          path: koreader-thai-android-arm64.apk
