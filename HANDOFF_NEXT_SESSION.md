@@ -28,4 +28,3 @@
 ## Model Recommendation
 - Main implementation/debug: **`gpt-5.4`**
 - Fast triage/log summarization: **`gpt-5.4-mini`**
-
